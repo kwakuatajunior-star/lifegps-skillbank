@@ -32,15 +32,7 @@ export default function Home() {
 
   const handleSignUp = async () => {
     const { error } = await supabase.auth.signUp({ email, password });
-    if (error) alert(error.message);
-  };
-
-  // --- DELETE ---
-  const handleDelete = async (videoName: string) => {
-    if (!confirm("Delete this mastery loop?")) return;
-    const { error } = await supabase.storage.from('videos').remove([videoName]);
-    if (error) alert(error.message);
-    else window.location.reload();
+    if (error) alert("Access Requested. Check email or try logging in.");
   };
 
   // --- UPLOAD ---
@@ -48,7 +40,7 @@ export default function Home() {
     try {
       const file = event.target.files[0];
       if (!file) return;
-      const skillName = prompt("Skill Name (e.g. TRADING, BOXING, SALES)");
+      const skillName = prompt("IDENTIFY SKILL: (e.g. TRADING, MUSIC, BOXING)");
       if (!skillName) return;
 
       setUploading(true);
@@ -65,7 +57,15 @@ export default function Home() {
     }
   };
 
-  // --- FEED DATA ---
+  // --- DELETE ---
+  const handleDelete = async (videoName: string) => {
+    if (!confirm("Wipe this record from the GPS?")) return;
+    const { error } = await supabase.storage.from('videos').remove([videoName]);
+    if (error) alert(error.message);
+    else window.location.reload();
+  };
+
+  // --- FEED SYNC ---
   useEffect(() => {
     const fetchVideos = async () => {
       const { data } = await supabase.storage.from('videos').list();
@@ -87,23 +87,24 @@ export default function Home() {
           video.muted = true;
         }
       });
-    }, { threshold: 0.7 });
+    }, { threshold: 0.8 });
     videoRefs.current.forEach((v) => { if (v) observer.observe(v); });
     return () => observer.disconnect();
   }, [videos, isMuted]);
 
-  // --- UI COMPONENTS ---
   if (!user) {
     return (
-      <main className="h-screen w-full bg-black flex items-center justify-center p-8">
-        <div className="w-full max-w-md bg-white/5 backdrop-blur-3xl border border-white/10 p-10 rounded-[40px] text-center shadow-2xl">
-          <h1 className="text-white text-4xl font-black italic tracking-tighter mb-2">LifeGPS</h1>
-          <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.4em] mb-10">System Locked</p>
-          <div className="flex flex-col gap-4">
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/5 border border-white/10 p-5 rounded-2xl text-white outline-none" />
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/5 border border-white/10 p-5 rounded-2xl text-white outline-none" />
-            <button onClick={handleLogin} className="bg-white text-black py-5 rounded-2xl font-black uppercase text-sm mt-4 shadow-xl active:scale-95 transition-all">Identify</button>
-            <button onClick={handleSignUp} className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-4">New Request</button>
+      <main className="h-screen w-full bg-zinc-950 flex items-center justify-center p-8 font-sans">
+        <div className="w-full max-w-md bg-white/[0.03] backdrop-blur-2xl border border-white/10 p-12 rounded-[50px] shadow-2xl">
+          <div className="mb-12 text-center">
+            <h1 className="text-white text-5xl font-black italic tracking-tighter mb-2">LifeGPS</h1>
+            <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.5em]">Command Center</p>
+          </div>
+          <div className="flex flex-col gap-5">
+            <input type="email" placeholder="OPERATOR EMAIL" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none focus:border-blue-500/50 transition-all text-xs font-bold" />
+            <input type="password" placeholder="ACCESS CODE" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none focus:border-blue-500/50 transition-all text-xs font-bold" />
+            <button onClick={handleLogin} className="bg-white text-black py-6 rounded-3xl font-black uppercase text-xs mt-4 shadow-2xl active:scale-95 transition-all">Authenticate</button>
+            <button onClick={handleSignUp} className="text-white/20 text-[9px] font-black uppercase tracking-widest mt-4 hover:text-blue-500 transition-colors">Register New Device</button>
           </div>
         </div>
       </main>
@@ -112,50 +113,57 @@ export default function Home() {
 
   return (
     <main className="h-screen w-full overflow-hidden relative bg-black text-white font-sans">
-      {/* HEADER WITH STREAK */}
-      <div className="absolute top-0 w-full z-50 p-6 flex justify-between items-start bg-gradient-to-b from-black/90 to-transparent">
-        <div>
-          <h1 className="font-black text-2xl italic tracking-tighter drop-shadow-xl">LifeGPS</h1>
-          <div className="flex items-center gap-2 mt-1">
-             <span className="text-orange-500 text-sm animate-pulse">🔥</span>
-             <span className="text-white font-black text-xs uppercase tracking-widest">{videos.length} STREAK</span>
+      {/* HUD HEADER */}
+      <div className="absolute top-0 w-full z-50 p-8 flex justify-between items-start pointer-events-none">
+        <div className="pointer-events-auto">
+          <h1 className="font-black text-3xl italic tracking-tighter text-white drop-shadow-2xl">LifeGPS</h1>
+          <div className="flex items-center gap-3 mt-2">
+             <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping" />
+             <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.3em]">Mastery Online</p>
           </div>
         </div>
-        <button onClick={() => setIsMuted(!isMuted)} className="bg-white/10 backdrop-blur-xl border border-white/20 p-3 rounded-2xl shadow-lg">
+        <button onClick={() => setIsMuted(!isMuted)} className="bg-black/20 backdrop-blur-2xl border border-white/10 p-4 rounded-3xl pointer-events-auto shadow-2xl">
           {isMuted ? '🔇' : '🔊'}
         </button>
       </div>
 
-      {/* FEED */}
+      {/* VIDEO ENGINE */}
       <div className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide">
         {videos.map((video, i) => (
-          <section key={i} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
+          <section key={i} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-900">
+            {/* VIGNETTE OVERLAY */}
+            <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
+            
             <video ref={(el) => { videoRefs.current[i] = el; }} src={`https://ghzeqhwftrsdnhzvnayt.supabase.co/storage/v1/object/public/videos/${video.name}`} className="w-full h-full object-cover" loop playsInline muted={true} />
             
-            <div className="absolute right-6 bottom-40 z-50 flex flex-col gap-6">
-              <button onClick={() => setActiveMenu(video.name)} className="bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl text-xl shadow-2xl">...</button>
-              <div className="p-4 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-xl text-blue-400">💎</div>
+            {/* SIDEBAR TOOLS */}
+            <div className="absolute right-8 bottom-48 z-50 flex flex-col gap-8 items-center">
+              <button onClick={() => setActiveMenu(video.name)} className="w-14 h-14 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full flex items-center justify-center text-xl shadow-2xl active:scale-90 transition-all">...</button>
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-12 h-12 bg-blue-600/20 border border-blue-500/30 rounded-2xl flex items-center justify-center text-blue-400 text-lg shadow-inner italic font-black">S</div>
+                <span className="text-[9px] font-black text-white/40 uppercase">{videos.length - i}</span>
+              </div>
             </div>
 
-            <div className="absolute bottom-32 left-6 right-24 z-50">
-               <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-7 rounded-[40px] shadow-2xl">
-                  <h2 className="text-blue-500 font-black text-[10px] uppercase tracking-[0.5em] mb-2 opacity-70">Active Mastery</h2>
-                  <p className="text-white font-black italic text-3xl uppercase tracking-tighter leading-none mb-4">
+            {/* IDENTITY CARD */}
+            <div className="absolute bottom-16 left-8 right-28 z-50">
+               <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/10 p-8 rounded-[45px] shadow-2xl">
+                  <span className="bg-blue-600 text-[9px] font-black px-3 py-1 rounded-full text-white uppercase tracking-widest mb-4 inline-block">Record Verified</span>
+                  <h2 className="text-white font-black italic text-4xl uppercase tracking-tighter leading-none">
                     {video.name.split('_')[0]}
-                  </p>
-                  <div className="flex gap-1">
-                    <div className="h-1 flex-1 bg-blue-600 rounded-full" />
-                    <div className="h-1 flex-1 bg-white/10 rounded-full" />
-                    <div className="h-1 flex-1 bg-white/10 rounded-full" />
-                  </div>
+                  </h2>
                </div>
             </div>
 
+            {/* ACTION MENU */}
             {activeMenu === video.name && (
-              <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-end" onClick={() => setActiveMenu(null)}>
-                <div className="w-full bg-zinc-900 p-12 rounded-t-[50px] border-t border-white/10" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => handleDelete(video.name)} className="w-full py-6 text-red-500 font-black uppercase tracking-widest text-xs border-b border-white/5">Delete Loop</button>
-                  <button onClick={() => setActiveMenu(null)} className="w-full py-6 mt-4 text-white/40 font-black uppercase text-[10px]">Close</button>
+              <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-xl flex items-end" onClick={() => setActiveMenu(null)}>
+                <div className="w-full bg-zinc-950 p-12 rounded-t-[60px] border-t border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-12" />
+                  <button onClick={() => handleDelete(video.name)} className="w-full py-6 text-red-500 font-black uppercase tracking-[0.3em] text-xs flex items-center justify-center gap-4 bg-red-500/5 rounded-3xl border border-red-500/10">
+                    Wipe Record
+                  </button>
+                  <button onClick={() => setActiveMenu(null)} className="w-full py-6 mt-6 text-white/20 font-black uppercase text-[10px] tracking-widest">Close Command</button>
                 </div>
               </div>
             )}
@@ -163,12 +171,13 @@ export default function Home() {
         ))}
       </div>
 
-      {/* FOOTER */}
-      <div className="absolute bottom-0 w-full z-[80] p-8 pb-12 flex justify-center">
-        <label className="cursor-pointer w-full max-w-sm">
-          <div className="bg-white text-black py-6 rounded-[30px] flex items-center justify-center gap-3 shadow-[0_0_50px_rgba(255,255,255,0.2)] active:scale-95 transition-all">
-            <span className="font-black uppercase tracking-[0.2em] text-[10px]">
-              {uploading ? "Analyzing..." : "Log Mastery 🛰️"}
+      {/* CAPTURE HUB */}
+      <div className="absolute bottom-0 w-full z-[80] p-10 flex justify-center pointer-events-none">
+        <label className="cursor-pointer w-full max-w-sm pointer-events-auto group">
+          <div className="bg-white text-black py-6 rounded-[35px] flex items-center justify-center gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.4)] group-active:scale-95 transition-all duration-300">
+            <div className="w-2 h-2 bg-blue-600 rounded-full group-hover:animate-ping" />
+            <span className="font-black uppercase tracking-[0.3em] text-[10px]">
+              {uploading ? "Analyzing Loop..." : "Capture Mastery"}
             </span>
           </div>
           <input type="file" accept="video/*" className="hidden" onChange={handleUpload} disabled={uploading} />
