@@ -10,17 +10,22 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
-  // --- 1. UPLOAD LOGIC ---
+  // --- 1. THE LEVEL CALCULATOR ---
+  const videoCount = videos.length;
+  const getRank = () => {
+    if (videoCount === 0) return "Starting Journey";
+    if (videoCount < 3) return "Novice";
+    if (videoCount < 10) return "Executive";
+    return "Legendary Billionaire";
+  };
+
   const handleUpload = async (event: any) => {
     try {
       setUploading(true);
       const file = event.target.files[0];
       if (!file) return;
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(fileName, file);
+      const fileName = `${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from('videos').upload(fileName, file);
       if (uploadError) throw uploadError;
       window.location.reload();
     } catch (error: any) {
@@ -30,9 +35,7 @@ export default function Home() {
     }
   };
 
-  // --- 2. THE OBSERVER (SOUND FIX) ---
   useEffect(() => {
-    const observerOptions = { threshold: 0.7 };
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         const video = entry.target as HTMLVideoElement;
@@ -45,13 +48,11 @@ export default function Home() {
           video.muted = true;
         }
       });
-    }, observerOptions);
-
+    }, { threshold: 0.7 });
     videoRefs.current.forEach((v) => { if (v) observer.observe(v); });
     return () => observer.disconnect();
   }, [videos, isMuted]);
 
-  // --- 3. FETCH DATA ---
   useEffect(() => {
     const fetchVideos = async () => {
       const { data } = await supabase.storage.from('videos').list();
@@ -64,20 +65,38 @@ export default function Home() {
     <main className="h-screen w-full overflow-hidden relative bg-black font-sans">
       
       {!audioEnabled && (
-        <div className="fixed inset-0 z-[600] bg-black/60 backdrop-blur-3xl flex items-center justify-center p-8 text-center">
-          <button onClick={() => { setAudioEnabled(true); setIsMuted(false); }} className="bg-white text-black w-full py-6 rounded-[32px] font-black uppercase tracking-widest shadow-2xl">
+        <div className="fixed inset-0 z-[600] bg-black/80 backdrop-blur-3xl flex items-center justify-center p-8">
+          <button onClick={() => { setAudioEnabled(true); setIsMuted(false); }} className="bg-blue-600 text-white w-full py-6 rounded-[32px] font-black uppercase tracking-widest shadow-[0_0_40px_rgba(37,99,235,0.6)]">
             Open LifeGPS 🛰️
           </button>
         </div>
       )}
 
-      <div className="absolute top-0 w-full z-50 p-8 flex justify-between items-start pointer-events-none">
-        <h1 className="text-white font-black text-3xl italic tracking-tighter pointer-events-auto">LifeGPS</h1>
-        <button onClick={() => setIsMuted(!isMuted)} className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl pointer-events-auto text-xl">
-          {isMuted ? '🔇' : '🔊'}
-        </button>
+      {/* --- NEW MASTERY DASHBOARD HEADER --- */}
+      <div className="absolute top-0 w-full z-50 p-6 flex flex-col gap-4 bg-gradient-to-b from-black/90 to-transparent">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-white font-black text-2xl italic tracking-tighter">LifeGPS</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="bg-blue-600 text-[10px] font-black px-2 py-0.5 rounded text-white uppercase italic">Rank: {getRank()}</span>
+              <span className="text-white/40 text-[10px] font-bold tracking-widest uppercase">{videoCount} Skills Logged</span>
+            </div>
+          </div>
+          <button onClick={() => setIsMuted(!isMuted)} className="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-2xl text-lg">
+            {isMuted ? '🔇' : '🔊'}
+          </button>
+        </div>
+        
+        {/* Progress Bar */}
+        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-blue-500 transition-all duration-1000" 
+            style={{ width: `${Math.min((videoCount / 10) * 100, 100)}%` }}
+          ></div>
+        </div>
       </div>
 
+      {/* FEED */}
       <div className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide">
         {videos.map((video, i) => (
           <section key={video.name || i} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
@@ -97,20 +116,21 @@ export default function Home() {
             <div className="absolute bottom-28 left-6 right-24 z-50">
                <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-6 rounded-[32px]">
                   <p className="text-white font-black italic text-lg uppercase tracking-tight mb-1">@future_billionaire</p>
-                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Growth Loop</p>
+                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Mastery ID: {i + 1}</p>
                </div>
             </div>
           </section>
         ))}
       </div>
 
-      <div className="absolute bottom-0 w-full z-[100] p-6 pb-10 flex justify-center items-center bg-gradient-to-t from-black/80 to-transparent">
-        <label className="cursor-pointer">
-          <div className="bg-blue-600 px-10 py-4 rounded-full flex items-center gap-3 shadow-[0_0_30px_rgba(37,99,235,0.4)]">
-            <span className="text-white font-black uppercase tracking-tighter">
-              {uploading ? "Uploading..." : "Add Mastery"}
+      {/* UPLOAD BUTTON */}
+      <div className="absolute bottom-0 w-full z-[100] p-6 pb-10 flex justify-center items-center">
+        <label className="cursor-pointer w-full max-w-md">
+          <div className="bg-white text-black py-5 rounded-[24px] flex items-center justify-center gap-3 shadow-2xl active:scale-95 transition-all">
+            <span className="font-black uppercase tracking-widest text-sm">
+              {uploading ? "Analyzing Skill..." : "Log New Mastery"}
             </span>
-            <div className="bg-white text-blue-600 rounded-full w-6 h-6 flex items-center justify-center font-bold">+</div>
+            <span className="text-xl">+</span>
           </div>
           <input type="file" accept="video/*" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
