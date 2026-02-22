@@ -12,10 +12,10 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [uploading, setUploading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [view, setView] = useState('feed'); // 'feed' or 'profile'
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
-  // --- IDENTITY CHECK ---
+  // --- AUTH ---
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -33,12 +33,12 @@ export default function Home() {
     if (error) alert(error.message);
   };
 
-  // --- UPLOAD ENGINE ---
+  // --- UPLOAD ---
   const handleUpload = async (event: any) => {
     try {
       const file = event.target.files[0];
       if (!file) return;
-      const skillName = prompt("NAME THIS MASTERY:");
+      const skillName = prompt("NAME THIS MASTERY TRACK:");
       if (!skillName) return;
 
       setUploading(true);
@@ -54,14 +54,7 @@ export default function Home() {
     }
   };
 
-  const handleDelete = async (videoName: string) => {
-    if (!confirm("Erase from permanent record?")) return;
-    const { error } = await supabase.storage.from('videos').remove([videoName]);
-    if (error) alert(error.message);
-    else window.location.reload();
-  };
-
-  // --- DATA SYNC ---
+  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchVideos = async () => {
       const { data } = await supabase.storage.from('videos').list();
@@ -81,34 +74,15 @@ export default function Home() {
     else setFilteredVideos(videos.filter(v => v.name.startsWith(activeTab)));
   }, [activeTab, videos]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const video = entry.target as HTMLVideoElement;
-        if (entry.isIntersecting) {
-          video.muted = isMuted;
-          video.play().catch(() => {});
-        } else {
-          video.pause();
-          video.currentTime = 0;
-          video.muted = true;
-        }
-      });
-    }, { threshold: 0.8 });
-    videoRefs.current.forEach((v) => { if (v) observer.observe(v); });
-    return () => observer.disconnect();
-  }, [filteredVideos, isMuted]);
-
   if (!user) {
     return (
-      <main className="h-screen w-full bg-zinc-950 flex items-center justify-center p-10">
-        <div className="w-full max-w-sm bg-white/[0.02] border border-white/10 backdrop-blur-3xl p-12 rounded-[60px] shadow-2xl">
-          <h1 className="text-white text-5xl font-black italic tracking-tighter mb-4 text-center">LifeGPS</h1>
-          <p className="text-blue-500 text-[9px] font-black uppercase tracking-[0.5em] mb-12 text-center">Identity Lock</p>
-          <div className="flex flex-col gap-5">
-            <input type="email" placeholder="EMAIL" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white text-xs font-bold outline-none" />
-            <input type="password" placeholder="CODE" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white text-xs font-bold outline-none" />
-            <button onClick={handleLogin} className="bg-white text-black py-6 rounded-3xl font-black uppercase text-xs mt-4 hover:shadow-[0_0_30px_white] transition-all">Authenticate</button>
+      <main className="h-screen w-full bg-black flex items-center justify-center p-10 font-sans">
+        <div className="w-full max-w-sm bg-white/[0.02] border border-white/10 backdrop-blur-3xl p-12 rounded-[60px] text-center shadow-2xl">
+          <h1 className="text-white text-4xl font-black italic tracking-tighter mb-12">LifeGPS</h1>
+          <div className="flex flex-col gap-4">
+            <input type="email" placeholder="EMAIL" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none" />
+            <input type="password" placeholder="CODE" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none" />
+            <button onClick={handleLogin} className="bg-white text-black py-6 rounded-3xl font-black uppercase text-xs mt-4">Identify</button>
           </div>
         </div>
       </main>
@@ -117,78 +91,68 @@ export default function Home() {
 
   return (
     <main className="h-screen w-full overflow-hidden relative bg-black text-white font-sans">
-      {/* HUD DASHBOARD */}
-      <div className="absolute top-0 w-full z-50 pt-12 px-8 flex flex-col gap-8 bg-gradient-to-b from-black via-black/60 to-transparent pb-24">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="font-black text-4xl italic tracking-tighter">LifeGPS</h1>
-            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em] mt-2">Active Tracker: {activeTab}</p>
-          </div>
-          <button onClick={() => setIsMuted(!isMuted)} className="bg-white/5 backdrop-blur-3xl border border-white/10 p-5 rounded-[30px] shadow-2xl">
-            {isMuted ? '🔇' : '🔊'}
-          </button>
-        </div>
-
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-          {categories.map((cat) => (
-            <button key={cat} onClick={() => setActiveTab(cat)} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${activeTab === cat ? 'bg-blue-600 border-blue-400 shadow-[0_0_25px_rgba(37,99,235,0.5)]' : 'bg-white/5 border-white/10 text-white/30'}`}>
-              {cat}
-            </button>
-          ))}
-        </div>
+      
+      {/* --- TOP NAVIGATION --- */}
+      <div className="absolute top-0 w-full z-[100] p-8 flex justify-between items-center bg-gradient-to-b from-black to-transparent">
+        <button onClick={() => setView('feed')} className={`font-black italic text-2xl tracking-tighter transition-opacity ${view === 'feed' ? 'opacity-100' : 'opacity-30'}`}>LifeGPS</button>
+        <button onClick={() => setView('profile')} className={`uppercase text-[10px] font-black tracking-widest px-4 py-2 rounded-full border transition-all ${view === 'profile' ? 'bg-white text-black border-white' : 'bg-white/5 text-white/40 border-white/10'}`}>Profile</button>
       </div>
 
-      {/* MASTERY FEED */}
-      <div className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide">
-        {filteredVideos.map((video, i) => (
-          <section key={video.name} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-900">
-            <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
-            <video ref={(el) => { videoRefs.current[i] = el; }} src={`https://ghzeqhwftrsdnhzvnayt.supabase.co/storage/v1/object/public/videos/${video.name}`} className="w-full h-full object-cover" loop playsInline muted={true} />
-            
-            {/* ACTION TOOLS */}
-            <div className="absolute right-8 bottom-48 z-50 flex flex-col gap-6">
-              <button onClick={() => setActiveMenu(video.name)} className="w-16 h-16 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[28px] flex items-center justify-center text-white text-xl shadow-2xl active:scale-90 transition-all">...</button>
-              <div className="w-16 h-16 bg-blue-600/10 backdrop-blur-3xl border border-blue-500/20 rounded-[28px] flex items-center justify-center flex-col shadow-inner">
-                <span className="text-blue-400 text-[11px] font-black italic">#{filteredVideos.length - i}</span>
-              </div>
-            </div>
+      {/* --- VIEW 1: THE FEED --- */}
+      {view === 'feed' && (
+        <div className="h-full w-full">
+           {/* CATEGORY BAR (ONLY IN FEED) */}
+           <div className="absolute top-28 w-full z-50 px-8 flex gap-3 overflow-x-auto scrollbar-hide">
+              {categories.map((cat) => (
+                <button key={cat} onClick={() => setActiveTab(cat)} className={`px-6 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeTab === cat ? 'bg-blue-600 border-blue-400' : 'bg-white/5 border-white/10 text-white/30'}`}>{cat}</button>
+              ))}
+           </div>
 
-            {/* IDENTITY PANEL */}
-            <div className="absolute bottom-20 left-8 right-32 z-50">
-               <div className="bg-white/[0.02] backdrop-blur-3xl border border-white/10 p-10 rounded-[55px] shadow-[0_30px_100px_rgba(0,0,0,0.5)]">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping" />
-                    <span className="text-white/40 text-[9px] font-black uppercase tracking-[0.4em]">Verified Data Point</span>
-                  </div>
-                  <h2 className="text-white font-black italic text-5xl uppercase tracking-tighter leading-none">
-                    {video.name.split('_')[0]}
-                  </h2>
-               </div>
-            </div>
-
-            {/* DELETE OVERLAY */}
-            {activeMenu === video.name && (
-              <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-3xl flex items-end animate-in fade-in duration-300" onClick={() => setActiveMenu(null)}>
-                <div className="w-full bg-zinc-950 p-14 rounded-t-[60px] border-t border-white/10 shadow-2xl animate-in slide-in-from-bottom-full duration-500" onClick={e => e.stopPropagation()}>
-                  <div className="w-14 h-1.5 bg-white/10 rounded-full mx-auto mb-14" />
-                  <button onClick={() => handleDelete(video.name)} className="w-full py-7 text-red-500 font-black uppercase tracking-[0.3em] text-[11px] bg-red-500/5 rounded-[30px] border border-red-500/20 shadow-2xl">DELETE MASTER RECORD</button>
-                  <button onClick={() => setActiveMenu(null)} className="w-full py-7 mt-6 text-white/20 font-black uppercase text-[10px] tracking-widest text-center">EXIT COMMAND</button>
+           <div className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide">
+            {filteredVideos.map((video, i) => (
+              <section key={video.name} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
+                <video src={`https://ghzeqhwftrsdnhzvnayt.supabase.co/storage/v1/object/public/videos/${video.name}`} className="w-full h-full object-cover" loop autoPlay muted={isMuted} playsInline />
+                <div className="absolute bottom-28 left-8 z-50">
+                  <h2 className="text-white font-black italic text-5xl uppercase tracking-tighter leading-none">{video.name.split('_')[0]}</h2>
+                  <p className="text-blue-500 font-bold text-[10px] uppercase mt-2 tracking-widest">Entry #{filteredVideos.length - i}</p>
                 </div>
-              </div>
-            )}
-          </section>
-        ))}
-      </div>
-
-      {/* CAPTURE BUTTON */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[80] w-full max-w-sm px-8">
-        <label className="cursor-pointer group">
-          <div className="bg-white text-black py-7 rounded-[40px] flex items-center justify-center gap-4 shadow-[0_25px_60px_rgba(0,0,0,0.4)] group-active:scale-95 transition-all duration-300 border-[6px] border-black/5">
-            <span className="font-black uppercase tracking-[0.3em] text-[11px]">CAPTURE MASTERY</span>
+              </section>
+            ))}
           </div>
-          <input type="file" accept="video/*" className="hidden" onChange={handleUpload} disabled={uploading} />
-        </label>
-      </div>
+
+          {/* FLOATING ACTION BUTTON */}
+          <div className="absolute bottom-10 right-10 z-[100]">
+            <label className="cursor-pointer">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all">
+                <span className="text-black text-3xl font-light">+</span>
+              </div>
+              <input type="file" accept="video/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* --- VIEW 2: THE PROFILE --- */}
+      {view === 'profile' && (
+        <div className="h-full w-full bg-zinc-950 flex flex-col items-center pt-40 px-10 animate-in fade-in slide-in-from-bottom-10 duration-500">
+          <div className="w-24 h-24 bg-blue-600 rounded-[35px] flex items-center justify-center text-4xl shadow-[0_0_50px_rgba(37,99,235,0.4)] mb-6">🛰️</div>
+          <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-1">Chief Operator</h2>
+          <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.4em] mb-12">{user.email}</p>
+          
+          <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[35px] text-center">
+              <p className="text-white/40 text-[9px] font-black uppercase mb-1">Total Skills</p>
+              <p className="text-2xl font-black italic">{categories.length - 1}</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[35px] text-center">
+              <p className="text-white/40 text-[9px] font-black uppercase mb-1">Sessions</p>
+              <p className="text-2xl font-black italic">{videos.length}</p>
+            </div>
+          </div>
+
+          <button onClick={() => supabase.auth.signOut()} className="mt-20 text-red-500/50 text-[10px] font-black uppercase tracking-widest hover:text-red-500 transition-colors">Terminate Session</button>
+        </div>
+      )}
     </main>
   );
 }
