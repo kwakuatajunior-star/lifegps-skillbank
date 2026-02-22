@@ -13,10 +13,9 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [view, setView] = useState('feed'); 
-  const [reactions, setReactions] = useState<{[key: string]: number}>({});
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
-  // --- AUTH ---
+  // --- IDENTITY & AUTH ---
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -38,7 +37,7 @@ export default function Home() {
     try {
       const file = event.target.files[0];
       if (!file) return;
-      const skillName = prompt("DEFINE YOUR MASTERY:");
+      const skillName = prompt("IDENTIFY THE MISSION:");
       if (!skillName) return;
       setUploading(true);
       const cleanSkill = skillName.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -53,6 +52,7 @@ export default function Home() {
     }
   };
 
+  // --- DATA ENGINE ---
   useEffect(() => {
     const fetchVideos = async () => {
       const { data } = await supabase.storage.from('videos').list();
@@ -72,15 +72,23 @@ export default function Home() {
     else setFilteredVideos(videos.filter(v => v.name.startsWith(activeTab)));
   }, [activeTab, videos]);
 
+  // --- DIRECTIVE LOGIC ---
+  const getDirective = () => {
+    if (videos.length === 0) return "MISSION: LOG YOUR FIRST MASTERY ENTRY.";
+    if (videos.length < 5) return "DIRECTIVE: REACH 5 SESSIONS TO UNLOCK 'OPERATOR' STATUS.";
+    if (videos.length < 15) return "INTEL: CONSISTENCY IS THE KEY TO GLOBAL DOMINATION.";
+    return "STATUS: LEGENDARY. KEEP STACKING THE RECORD.";
+  };
+
   if (!user) {
     return (
       <main className="h-screen w-full bg-black flex items-center justify-center p-10 font-sans">
-        <div className="w-full max-sm bg-white/[0.02] border border-white/10 backdrop-blur-3xl p-12 rounded-[60px] text-center">
+        <div className="w-full max-w-sm bg-white/[0.02] border border-white/10 backdrop-blur-3xl p-12 rounded-[60px] text-center shadow-2xl">
           <h1 className="text-white text-4xl font-black italic tracking-tighter mb-12">LifeGPS</h1>
           <div className="flex flex-col gap-4">
-            <input type="email" placeholder="EMAIL" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none text-xs font-bold" />
-            <input type="password" placeholder="CODE" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none text-xs font-bold" />
-            <button onClick={handleLogin} className="bg-white text-black py-6 rounded-3xl font-black uppercase text-xs">Unlock Access</button>
+            <input type="email" placeholder="EMAIL" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none font-bold" />
+            <input type="password" placeholder="CODE" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-white outline-none font-bold" />
+            <button onClick={handleLogin} className="bg-white text-black py-6 rounded-3xl font-black uppercase text-xs mt-4">Execute Login</button>
           </div>
         </div>
       </main>
@@ -90,12 +98,21 @@ export default function Home() {
   return (
     <main className="h-screen w-full overflow-hidden relative bg-black text-white font-sans">
       
-      {/* --- HUD --- */}
-      <div className="absolute top-0 w-full z-[100] p-8 flex justify-between items-center bg-gradient-to-b from-black via-black/40 to-transparent">
-        <button onClick={() => setView('feed')} className="font-black italic text-3xl tracking-tighter">LifeGPS</button>
-        <div className="flex gap-4">
-            <button onClick={() => setView('leaderboard')} className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${view === 'leaderboard' ? 'bg-blue-600 border-blue-400' : 'bg-white/5 border-white/10'}`}>🏆</button>
-            <button onClick={() => setView('profile')} className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${view === 'profile' ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10 text-white'}`}>👤</button>
+      {/* --- HUD HEADER & DIRECTIVE --- */}
+      <div className="absolute top-0 w-full z-[100] bg-gradient-to-b from-black via-black/80 to-transparent pb-10">
+        <div className="p-8 flex justify-between items-center">
+            <button onClick={() => setView('feed')} className="font-black italic text-3xl tracking-tighter">LifeGPS</button>
+            <div className="flex gap-4">
+                <button onClick={() => setView('profile')} className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-[0_0_20px_blue] border border-blue-400">👤</button>
+            </div>
+        </div>
+        
+        {/* MISSION DIRECTIVE BAR */}
+        <div className="px-8 mt-2">
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center gap-4">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/80">{getDirective()}</p>
+            </div>
         </div>
       </div>
 
@@ -106,13 +123,20 @@ export default function Home() {
             {filteredVideos.map((video, i) => (
               <section key={video.name} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
                 <video src={`https://ghzeqhwftrsdnhzvnayt.supabase.co/storage/v1/object/public/videos/${video.name}`} className="w-full h-full object-cover" loop autoPlay muted={isMuted} playsInline />
+                
+                {/* HUD INFO */}
                 <div className="absolute bottom-32 left-8 z-50">
                   <h2 className="text-white font-black italic text-5xl uppercase tracking-tighter leading-none">{video.name.split('_')[0]}</h2>
-                  <p className="text-blue-500 font-bold text-[10px] uppercase mt-3 tracking-[0.4em]">Rank: Operator</p>
+                  <div className="flex items-center gap-3 mt-4">
+                    <span className="bg-blue-600 text-[9px] font-black px-3 py-1 rounded-full uppercase">Verified</span>
+                    <span className="text-white/40 text-[9px] font-black uppercase tracking-widest">Entry #{filteredVideos.length - i}</span>
+                  </div>
                 </div>
               </section>
             ))}
           </div>
+
+          {/* CAPTURE BUTTON */}
           <div className="absolute bottom-10 left-10 z-[100]">
             <label className="cursor-pointer">
               <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-2xl active:scale-90 transition-all">
@@ -124,45 +148,26 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- LEADERBOARD --- */}
-      {view === 'leaderboard' && (
-        <div className="h-full w-full bg-zinc-950 pt-40 px-10 animate-in fade-in slide-in-from-bottom-20 duration-500">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-2">Global Rankings</h2>
-            <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.4em]">World Tier: Elite</p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="bg-white/10 border border-blue-500/50 p-6 rounded-[35px] flex justify-between items-center shadow-[0_0_30px_rgba(37,99,235,0.2)]">
-                <div className="flex items-center gap-4">
-                    <span className="text-2xl">👑</span>
-                    <div>
-                        <p className="text-white font-black italic text-sm uppercase">{user.email?.split('@')[0]}</p>
-                        <p className="text-white/30 text-[9px] font-bold uppercase">Current Champion</p>
-                    </div>
-                </div>
-                <p className="text-blue-400 font-black italic text-xl">{videos.length}</p>
-            </div>
-            {/* Simulation of other users for App Store Look */}
-            <div className="bg-white/5 border border-white/5 p-6 rounded-[35px] flex justify-between items-center opacity-40">
-                <div className="flex items-center gap-4">
-                    <span className="font-black text-white/20 ml-2 italic">02</span>
-                    <p className="text-white font-black italic text-sm uppercase tracking-widest">A. Tate</p>
-                </div>
-                <p className="text-white/20 font-black italic text-xl">--</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* --- PROFILE --- */}
       {view === 'profile' && (
         <div className="h-full w-full bg-zinc-950 pt-48 px-10 flex flex-col items-center">
-          <div className="bg-white/5 border border-white/10 p-10 rounded-[50px] w-full text-center">
-            <h2 className="text-white font-black italic text-2xl uppercase tracking-tighter mb-1">{user.email?.split('@')[0]}</h2>
-            <p className="text-white/20 text-[9px] font-black uppercase tracking-[0.4em]">Mastery ID: {user.id.slice(0,8)}</p>
+          <div className="bg-white/[0.03] border border-white/10 p-10 rounded-[50px] w-full text-center mb-10">
+            <h2 className="text-white font-black italic text-2xl uppercase tracking-tighter mb-1">CHIEF OPERATOR</h2>
+            <p className="text-white/20 text-[9px] font-black uppercase tracking-[0.4em]">{user.email}</p>
           </div>
-          <button onClick={() => supabase.auth.signOut()} className="mt-20 text-red-500/30 text-[10px] font-black uppercase tracking-widest">Logout</button>
+          
+          <div className="grid grid-cols-2 gap-4 w-full mb-10">
+             <div className="bg-white/5 border border-white/10 p-6 rounded-[30px] text-center">
+                <p className="text-white/40 text-[8px] font-black uppercase mb-1">Sessions</p>
+                <p className="text-2xl font-black italic">{videos.length}</p>
+             </div>
+             <div className="bg-white/5 border border-white/10 p-6 rounded-[30px] text-center">
+                <p className="text-white/40 text-[8px] font-black uppercase mb-1">Tier</p>
+                <p className="text-2xl font-black italic">ELITE</p>
+             </div>
+          </div>
+
+          <button onClick={() => supabase.auth.signOut()} className="mt-auto mb-20 text-red-500/30 text-[9px] font-black uppercase tracking-widest">Terminate Session</button>
         </div>
       )}
     </main>
