@@ -4,38 +4,51 @@ import { supabase } from '../lib/supabase'
 
 export default function Home() {
   const [videos, setVideos] = useState<any[]>([]);
-  const [likedVideos, setLikedVideos] = useState<string[]>([]);
-  const [audioEnabled, setAudioEnabled] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [showVision, setShowVision] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
-  const videoCount = videos.length;
-  
-  // --- AI COACH LOGIC ---
-  const getCoachAdvice = () => {
-    if (videoCount === 0) return "The first step is the hardest. Upload your first mastery clip now.";
-    if (videoCount < 5) return "Consistency is the currency of billionaires. Keep stacking these loops.";
-    if (videoCount < 10) return "You're entering the Executive Phase. Focus on the quality of your form.";
-    return "Legendary status confirmed. You are now the top 1% of LifeGPS users.";
+  // --- 1. AUTH LOGIC ---
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+    };
+    getSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => authListener.subscription.unsubscribe();
+  }, []);
+
+  const handleSignUp = async () => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) alert(error.message);
+    else alert("Check your email or try logging in!");
   };
 
-  const handleUpload = async (event: any) => {
-    try {
-      setUploading(true);
-      const file = event.target.files[0];
-      if (!file) return;
-      const fileName = `${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from('videos').upload(fileName, file);
-      if (uploadError) throw uploadError;
-      window.location.reload();
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setUploading(false);
-    }
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
   };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // --- 2. VIDEO FETCH & OBSERVER ---
+  useEffect(() => {
+    const fetchVideos = async () => {
+      const { data } = await supabase.storage.from('videos').list();
+      if (data) setVideos(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    };
+    if (user) fetchVideos();
+  }, [user]);
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -55,96 +68,62 @@ export default function Home() {
     return () => observer.disconnect();
   }, [videos, isMuted]);
 
-  useEffect(() => {
-    const fetchVideos = async () => {
-      const { data } = await supabase.storage.from('videos').list();
-      if (data) setVideos(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-    };
-    fetchVideos();
-  }, []);
+  // --- LOGIN SCREEN UI ---
+  if (!user) {
+    return (
+      <main className="h-screen w-full bg-black flex items-center justify-center p-8 font-sans">
+        <div className="w-full max-w-md bg-white/5 backdrop-blur-3xl border border-white/10 p-10 rounded-[40px] shadow-2xl">
+          <h1 className="text-white text-4xl font-black italic tracking-tighter mb-2 text-center">LifeGPS</h1>
+          <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.4em] mb-10 text-center">Identity Verification</p>
+          
+          <div className="flex flex-col gap-4">
+            <input 
+              type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
+              className="bg-white/5 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-blue-500 transition-all"
+            />
+            <input 
+              type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
+              className="bg-white/5 border border-white/10 p-5 rounded-2xl text-white outline-none focus:border-blue-500 transition-all"
+            />
+            <button onClick={handleLogin} className="bg-white text-black py-5 rounded-2xl font-black uppercase tracking-widest text-sm mt-4 active:scale-95 transition-all">Enter Portal</button>
+            <button onClick={handleSignUp} className="text-white/40 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-all">Request Access</button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
+  // --- MAIN APP UI ---
   return (
     <main className="h-screen w-full overflow-hidden relative bg-black font-sans text-white">
-      
-      {!audioEnabled && (
-        <div className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-12">
-          <div className="text-center">
-            <h2 className="text-3xl font-black italic mb-2">LifeGPS</h2>
-            <p className="text-blue-500 text-[10px] tracking-[0.4em] uppercase mb-12">Initializing Mastery</p>
-            <button onClick={() => { setAudioEnabled(true); setIsMuted(false); }} className="bg-white text-black px-12 py-5 rounded-full font-black uppercase tracking-widest text-sm shadow-[0_0_50px_white]">
-              Begin Session
-            </button>
-          </div>
+      {/* HEADER */}
+      <div className="absolute top-0 w-full z-50 p-6 flex justify-between items-start">
+        <div>
+          <h1 className="font-black text-2xl italic tracking-tighter">LifeGPS</h1>
+          <p className="text-blue-500 text-[9px] font-black uppercase tracking-widest">Logged in: {user.email?.split('@')[0]}</p>
         </div>
-      )}
-
-      {/* --- DASHBOARD HEADER --- */}
-      <div className="absolute top-0 w-full z-50 p-6 bg-gradient-to-b from-black to-transparent">
-        <div className="flex justify-between items-center mb-4">
-          <div onClick={() => setShowVision(true)} className="cursor-pointer">
-            <h1 className="font-black text-2xl italic tracking-tighter">LifeGPS</h1>
-            <p className="text-blue-500 text-[9px] font-black uppercase tracking-widest">Mastery Level {videoCount}</p>
-          </div>
-          <button onClick={() => setIsMuted(!isMuted)} className="bg-white/10 backdrop-blur-xl border border-white/20 p-3 rounded-2xl">
-            {isMuted ? '🔇' : '🔊'}
-          </button>
-        </div>
-        
-        {/* AI COACH CARD */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-3 rounded-2xl flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs">🤖</div>
-          <p className="text-[10px] font-medium leading-tight text-white/80">{getCoachAdvice()}</p>
-        </div>
+        <button onClick={handleLogout} className="bg-white/5 border border-white/10 p-3 rounded-xl text-[10px] font-black uppercase">Sign Out</button>
       </div>
 
       {/* FEED */}
       <div className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide">
         {videos.map((video, i) => (
-          <section key={video.name || i} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
+          <section key={i} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
             <video 
               ref={(el) => { videoRefs.current[i] = el; }}
               src={`https://ghzeqhwftrsdnhzvnayt.supabase.co/storage/v1/object/public/videos/${video.name}`}
               className="w-full h-full object-cover"
-              loop playsInline muted={true}
+              loop playsInline muted={isMuted}
             />
-            
-            <div className="absolute right-6 bottom-40 z-50 flex flex-col gap-8 items-center">
-              <div className="p-4 rounded-2xl backdrop-blur-xl border border-white/10 bg-white/5">
-                <span className="text-2xl">🏆</span>
-              </div>
-            </div>
-
-            <div className="absolute bottom-28 left-6 right-24 z-50">
-               <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-6 rounded-[32px]">
-                  <p className="text-white font-black italic text-lg uppercase tracking-tight mb-1">Session {videoCount - i}</p>
-                  <p className="text-white/40 text-[9px] font-bold uppercase tracking-widest">Identity Confirmed: Future Billionaire</p>
-               </div>
-            </div>
           </section>
         ))}
       </div>
 
-      {/* VISION MODAL */}
-      {showVision && (
-        <div className="fixed inset-0 z-[700] bg-blue-600/90 backdrop-blur-2xl flex items-center justify-center p-10" onClick={() => setShowVision(false)}>
-          <div className="text-center">
-            <p className="text-white/60 text-xs font-black uppercase mb-4 tracking-[0.5em]">The Ultimate Goal</p>
-            <h2 className="text-4xl font-black italic leading-none mb-8">BUILD A GLOBAL SKILL BANK 🌍</h2>
-            <p className="text-white/80 text-sm italic">Tap anywhere to return</p>
-          </div>
-        </div>
-      )}
-
-      {/* LOG BUTTON */}
-      <div className="absolute bottom-0 w-full z-[100] p-8 pb-12 flex justify-center items-center">
-        <label className="cursor-pointer w-full">
-          <div className="bg-white text-black py-5 rounded-[24px] flex items-center justify-center gap-3 shadow-2xl active:scale-95 transition-all">
-            <span className="font-black uppercase tracking-widest text-xs">
-              {uploading ? "Analyzing..." : "Capture Mastery"}
-            </span>
-          </div>
-          <input type="file" accept="video/*" className="hidden" onChange={handleUpload} disabled={uploading} />
-        </label>
+      {/* FOOTER */}
+      <div className="absolute bottom-10 w-full flex justify-center p-6 z-50">
+        <button className="bg-blue-600 w-full max-w-xs py-5 rounded-full font-black uppercase tracking-widest shadow-[0_0_30px_rgba(37,99,235,0.5)]">
+           Log Mastery 🛰️
+        </button>
       </div>
     </main>
   );
