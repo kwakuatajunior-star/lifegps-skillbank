@@ -93,7 +93,7 @@ export default function Home() {
       {/* FEED */}
       <div className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide">
         {videos.map((video, i) => (
-          <section key={i} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
+          <section key={video.name || i} className="h-screen w-full snap-start relative flex items-center justify-center bg-zinc-950">
             <video 
               ref={(el) => (videoRefs.current[i] = el)}
               src={`https://ghzeqhwftrsdnhzvnayt.supabase.co/storage/v1/object/public/videos/${video.name}`}
